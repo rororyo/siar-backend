@@ -9,9 +9,8 @@ import env from "dotenv";
 const authApp = express();
 // List of allowed origins
 const allowedOrigins = [
-    "master-hadziq.dev.8thwall.app/gemastik-siar-halal",
-    "hadziq.8thwall.app/gemastik-siar-halal/",
-    "https://hadziq.staging.8thwall.app"
+    "http://localhost:3000",
+    "https://4x9br3l0-3000.asse.devtunnels.ms"
   ];
   // Dynamic CORS configuration
   const corsOptions = {
@@ -46,17 +45,17 @@ authApp.post("/register", async (req, res) => {
         const checkResult = await client.query("SELECT * FROM users WHERE email = $1", [email]);
 
         if (checkResult.rows.length > 0) {
-            res.status(400).send("User already exists");
+            res.status(400).send({ message: 'Email already exists' });
         } else {
             const hash = await argon2.hash(password);
             const result = await client.query("INSERT INTO users(email, password, username) VALUES($1,$2,$3) RETURNING *", [email, hash, req.body.username]);
             if (result.rows.length > 0) {
-                res.status(200).send('Registration successful');
+                res.status(200).send({message: 'User created successfully'});
             }
         }
     } catch (err) {
         console.error('Error in registration:', err);
-        res.status(500).send(err.message);
+        res.status(500).send({message : err.message});
     }
 });
 

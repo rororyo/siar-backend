@@ -8,9 +8,8 @@ import env from "dotenv";
 const halalin = express();
 // List of allowed origins
 const allowedOrigins = [
-  "master-hadziq.dev.8thwall.app/gemastik-siar-halal",
-  "hadziq.8thwall.app/gemastik-siar-halal/",
-  "https://hadziq.staging.8thwall.app"
+  "http://localhost:3000",
+  "https://4x9br3l0-3000.asse.devtunnels.ms"
 ];
 // Dynamic CORS configuration
 const corsOptions = {

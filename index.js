@@ -13,16 +13,10 @@ import halalin from "./routes/halalin.js";
 const app = express();
 const port = 4000;
 
-// SSL options
-const options = {
-  key: fs.readFileSync("./key.pem"),
-  cert: fs.readFileSync("./cert.pem"),
-};
 // List of allowed origins
 const allowedOrigins = [
-  "master-hadziq.dev.8thwall.app/gemastik-siar-halal",
-  "hadziq.8thwall.app/gemastik-siar-halal/",
-  "https://hadziq.staging.8thwall.app"
+  "http://localhost:3000",
+  "https://4x9br3l0-3000.asse.devtunnels.ms"
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -48,7 +42,6 @@ app.use(halalin);
 
 // Routes
 app.get("/", (req, res) => {
-  console.log("API hit");
   res.json({ message: "Hello World" });
 });
 
