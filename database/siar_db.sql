@@ -20,7 +20,29 @@ CREATE TABLE reviews (
 create table umkms(
 	id serial primary key, 
 	nama text,
+    nomor_telp text,
+    kategori_id int foreign key(kategori_id) REFERENCES kategori(id),
 	lat float,
 	long float,
-	status_verif boolean
+	status_verif boolean set DEFAULT false
 );
+CREATE TABLE kategori (
+    id SERIAL PRIMARY KEY,
+    nama_kategori TEXT
+);
+
+CREATE TABLE umkms_kategori (
+    id_umkm INT,
+    id_kategori INT,
+    FOREIGN KEY (id_umkm) REFERENCES umkms(id),
+    FOREIGN KEY (id_kategori) REFERENCES kategori(id)
+);
+
+create table articles(
+    id serial primary key,
+    image_path text,
+    title text,
+    content text,
+    created_at timestamp default current_timestamp,
+    author text
+)

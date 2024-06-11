@@ -8,6 +8,7 @@ import authApp from "./routes/auth.js";
 import { dbMiddleware } from "./routes/dbsetup.js";
 import cookieParser from "cookie-parser";
 import halalin from "./routes/halalin.js";
+import homepage from "./routes/homepage.js";
 
 // Constants
 const app = express();
@@ -16,7 +17,8 @@ const port = 4000;
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://4x9br3l0-3000.asse.devtunnels.ms"
+  "https://4x9br3l0-3000.asse.devtunnels.ms",
+  "https://halal-hunter.vercel.app/",
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -39,6 +41,7 @@ app.use(dbMiddleware);
 app.use(cookieParser());
 app.use(authApp);
 app.use(halalin);
+app.use(homepage);
 
 // Routes
 app.get("/", (req, res) => {
