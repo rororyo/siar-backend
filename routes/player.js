@@ -6,12 +6,14 @@ import cors from 'cors';
 import env from "dotenv";
 
 const player = express();
+player.set('trust proxy', true)
 env.config();
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
+  "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -26,7 +28,7 @@ const corsOptions = {
   credentials: true,
 };
 env.config();
-authApp.use(cors(corsOptions));
+player.use(cors(corsOptions));
 player.use(express.json());
 player.use(express.urlencoded({ extended: true }));
 player.use(cookieParser());

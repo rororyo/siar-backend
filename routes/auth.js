@@ -7,11 +7,13 @@ import cors from 'cors';
 import env from "dotenv";
 
 const authApp = express();
+authApp.set('trust proxy', true);
 // List of allowed origins
 const allowedOrigins = [
     "http://localhost:3000",
     "https://4x9br3l0-3000.asse.devtunnels.ms",
     "https://halal-hunter.vercel.app",
+    "https://4mwqv6dl-3000.asse.devtunnels.ms",
   ];
   // Dynamic CORS configuration
   const corsOptions = {
@@ -75,7 +77,11 @@ authApp.post("/login", async (req, res) => {
 
             if (valid) {
                 const token = generateToken(user);
-                res.cookie("token", token);
+                res.cookie("token", token, {
+                    httpOnly: true,
+                    secure: true, // Ensure this is true in production
+                    sameSite: 'None' // Ensure this is correctly set based on your environment
+                  });
                 res.status(200).send({ user, token });
             } else {
                 res.status(401).json({ message: "Invalid credentials" });

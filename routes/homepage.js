@@ -6,11 +6,13 @@ import cors from 'cors';
 import env from "dotenv";
 
 const homepage = express();
+homepage.set('trust proxy', true)
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
+  "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
 
 const corsOptions = {

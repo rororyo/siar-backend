@@ -13,12 +13,13 @@ import homepage from "./routes/homepage.js";
 // Constants
 const app = express();
 const port = 4000;
-
+app.set('trust proxy', true);
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
+  "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
 // Dynamic CORS configuration
 const corsOptions = {

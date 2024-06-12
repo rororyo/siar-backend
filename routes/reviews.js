@@ -9,6 +9,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
+  "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -23,6 +24,7 @@ const corsOptions = {
   credentials: true,
 };
 const reviews = express();
+reviews.set('trust proxy', true);
 env.config();
 reviews.use(cors(corsOptions));
 reviews.use(express.json());

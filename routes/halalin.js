@@ -6,11 +6,13 @@ import cors from 'cors';
 import env from "dotenv";
 
 const halalin = express();
+halalin.set('trust proxy',true)
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
+  "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -24,6 +26,7 @@ const corsOptions = {
   },
 };
 env.config();
+
 halalin.use(cors(corsOptions));
 halalin.use(express.json());
 halalin.use(express.urlencoded({ extended: true }));
