@@ -11,7 +11,7 @@ env.config();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://4x9br3l0-3000.asse.devtunnels.ms",
-  "https://halal-hunter.vercel.app/",
+  "https://halal-hunter.vercel.app",
 ];
 // Dynamic CORS configuration
 const corsOptions = {
