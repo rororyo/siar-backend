@@ -73,8 +73,34 @@ homepage.get("/api/umkm/:id", async (req, res) => {
   }
 });
 
-//get all post
-
-//get specific post by id 
-
+//get all articles
+homepage.get("/api/articles", async (req, res) => {
+  const client =req.dbClient;
+  try{
+    const result = await client.query("SELECT * FROM articles limit 4");
+    if(result.rows.length > 0){
+      res.status(200).json({ articles: result.rows });
+    }
+    else{
+      res.status(404).json({ message: "Data not found" });
+    }
+  }
+  catch(err){
+    res.status(500).json({ message: err.message });
+  }
+})
+//get specific article by id 
+homepage.get("/api/article/:id", async (req, res) => {
+  const client = req.dbClient;
+  try {
+    const result = await client.query("SELECT * FROM articles WHERE id = $1", [req.params.id]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ article: result.rows[0] });
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+})
 export default homepage
