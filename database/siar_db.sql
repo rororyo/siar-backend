@@ -22,6 +22,10 @@ create table umkms(
 	nama text,
     nomor_telp text,
     kategori_id int foreign key(kategori_id) REFERENCES kategori(id),
+    deskripsi text,
+    rating float,
+    banner_img_path text,
+    img_path text,
 	lat float,
 	long float,
 	status_verif boolean set DEFAULT false

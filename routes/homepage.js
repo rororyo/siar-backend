@@ -103,4 +103,33 @@ homepage.get("/api/article/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 })
+
+homepage.post('/api/nearbyPlaces', async (req, res) => {
+  const { latitude, longitude } = req.body;
+  const client = req.dbClient;
+  const query = `
+    SELECT *,
+      earth_distance(
+        ll_to_earth(lat, long),
+        ll_to_earth($1, $2)
+      ) as distance
+    FROM umkms
+    WHERE earth_box(ll_to_earth($1, $2), 2000) @> ll_to_earth(lat, long)
+    AND earth_distance(
+        ll_to_earth(lat, long),
+        ll_to_earth($1, $2)
+      ) < 20000
+    ORDER BY rating DESC
+    LIMIT 5;
+  `;
+
+  try {
+    const result = await client.query(query, [latitude, longitude]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error executing query', err.stack);
+    res.status(500).send('Error fetching nearby places');
+  }
+});
+
 export default homepage
