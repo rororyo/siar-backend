@@ -3,11 +3,12 @@ import jwt from "jsonwebtoken";
 import { dbMiddleware } from "./dbsetup.js";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import env from "dotenv";
+import dotenv from "dotenv";
 
 const player = express();
-player.set('trust proxy', true)
-env.config();
+player.set('trust proxy', true);
+dotenv.config();
+
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
@@ -15,11 +16,12 @@ const allowedOrigins = [
   "https://halal-hunter.vercel.app",
   "https://4mwqv6dl-3000.asse.devtunnels.ms",
 ];
+
 // Dynamic CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     // Check if the origin is in the allowedOrigins list or if there's no origin (like for same-origin requests)
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+    if (allowedOrigins.includes(origin) || !origin) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -27,46 +29,92 @@ const corsOptions = {
   },
   credentials: true,
 };
-env.config();
+
 player.use(cors(corsOptions));
 player.use(express.json());
 player.use(express.urlencoded({ extended: true }));
 player.use(cookieParser());
 player.use(dbMiddleware);
+
 player.get("/api/current-user", async (req, res) => {
   const client = req.dbClient;
-  const token = req.cookies.token;
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
+  const tokenHeader = req.headers.authorization;
+  if (!tokenHeader) {
+    return res.status(401).json({ message: "No token provided" });
   }
-  else{
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.userId;
-      const result = await client.query("SELECT * FROM users WHERE id = $1", [userId]);
-      if (result.rows.length > 0) {
-        res.status(200).json({ user: result.rows[0] });
-      } else {
-        res.status(404).json({ message: "User Not Found" });
-      }
-    } catch (err) {
-      console.error('Error in current user:', err);
-      res.status(500).json({ message: err.message });
+
+  // Split the token from 'Bearer TOKEN_VALUE'
+  const token = tokenHeader.split(' ')[1]; 
+  // Now check if the token was actually split and exists
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized: Token not found" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.user.id;
+    const result = await client.query("SELECT * FROM users WHERE id = $1", [userId]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ user: result.rows[0] });
+    } else {
+      res.status(404).json({ message: "User Not Found" });
+    }
+  } catch (err) {
+    console.error('Error in current user:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Example of another endpoint
+player.get("/api/get-rewards", async (req, res) => {
+  const tokenHeader = req.headers.authorization;
+  const client = req.dbClient;
+  if (!tokenHeader) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  // Split the token from 'Bearer TOKEN_VALUE'
+  const token = tokenHeader.split(' ')[1]; 
+  // Now check if the token was actually split and exists
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized: Token not found" });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.user.id;
+    await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
+    res.status(200).json({ message: "Exp successfully added" });
+  } catch (err) {
+    console.error('Error in adding exp:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+player.get("/api/found-wayspots", async (req, res) => {
+  const client = req.dbClient;
+  const tokenHeader = req.headers.authorization;
+  if (!tokenHeader) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  // Split the token from 'Bearer TOKEN_VALUE'
+  const token = tokenHeader.split(' ')[1]; 
+  // Now check if the token was actually split and exists
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized: Token not found" });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.user.id;
+    const result = await client.query("SELECT * FROM wayspotFound where user_id = $1", [userId]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ wayspots: result.rows });
+    } else {
+      res.status(404).json({ message: "Data not found" });
     }
   }
-})
-player.get("/api/get-rewards/:userId", async (req, res) => {
-  const userId = req.params.userId;
-  const client = req.dbClient;
-  try{
-    await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId])
-    res.status(200).json({message: "exp sucessfuly added"})
+  catch (err) {
+    res.status(500).json({ message: err.message });
   }
-  catch(err){
-    console.log(err)
-    res.status(500).json({message: err.message})
-  }
-  
 })
 
-export default player
+export default player;

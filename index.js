@@ -9,7 +9,7 @@ import { dbMiddleware } from "./routes/dbsetup.js";
 import cookieParser from "cookie-parser";
 import halalin from "./routes/halalin.js";
 import homepage from "./routes/homepage.js";
-
+import player from "./routes/player.js";
 // Constants
 const app = express();
 const port = 4000;
@@ -43,6 +43,7 @@ app.use(cookieParser());
 app.use(authApp);
 app.use(halalin);
 app.use(homepage);
+app.use(player)
 
 // Routes
 app.get("/", (req, res) => {
