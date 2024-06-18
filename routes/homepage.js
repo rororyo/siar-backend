@@ -48,7 +48,7 @@ homepage.get("/api/kategori", async (req, res) => {
 homepage.get("/api/kategori/:id", async (req, res) => {
   const client = req.dbClient;
   try {
-    const result = await client.query("SELECT umkms.*,kategori FROM umkms JOIN kategori ON kategori_id = kategori.id where umkms.kategori_id = $1", [req.params.id]);
+    const result = await client.query("SELECT menus.*,umkms.*,kategori FROM menus JOIN kategori ON kategori_id = kategori.id join umkms on restaurant_id = umkms.id where menus.kategori_id = $1", [req.params.id]);
     if (result.rows.length > 0) {
       res.status(200).json({ umkms: result.rows });
     } else {

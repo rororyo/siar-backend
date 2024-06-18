@@ -106,11 +106,7 @@ player.get("/api/found-wayspots", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
     const result = await client.query("SELECT * FROM wayspotFound where user_id = $1", [userId]);
-    if (result.rows.length > 0) {
       res.status(200).json({ wayspots: result.rows });
-    } else {
-      res.status(404).json({ message: "Data not found" });
-    }
   }
   catch (err) {
     res.status(500).json({ message: err.message });
