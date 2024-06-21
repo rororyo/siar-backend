@@ -107,6 +107,11 @@ homepage.get("/api/article/:id", async (req, res) => {
 
 homepage.post('/api/nearby-places', async (req, res) => {
   const { latitude, longitude } = req.body;
+
+  // Convert latitude and longitude to numbers to avoid any implicit type conversion issues
+  const lat = parseFloat(latitude);
+  const lon = parseFloat(longitude);
+
   const client = req.dbClient;
   const query = `
     SELECT *,
@@ -125,12 +130,13 @@ homepage.post('/api/nearby-places', async (req, res) => {
   `;
 
   try {
-    const result = await client.query(query, [latitude, longitude]);
+    const result = await client.query(query, [lat, lon]);  // Pass the converted values
     res.status(200).json({ places: result.rows });
   } catch (err) {
     console.error('Error executing query', err.stack);
     res.status(500).json({ message: err.message });
   }
 });
+
 
 export default homepage
