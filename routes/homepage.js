@@ -108,35 +108,48 @@ homepage.get("/api/article/:id", async (req, res) => {
 homepage.post('/api/nearby-places', async (req, res) => {
   const { latitude, longitude } = req.body;
 
-  // Convert latitude and longitude to numbers to avoid any implicit type conversion issues
+  // Convert latitude and longitude to numbers
   const lat = parseFloat(latitude);
   const lon = parseFloat(longitude);
 
+  if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return res.status(400).json({ message: "Invalid latitude or longitude values." });
+  }
+
   const client = req.dbClient;
-  const query = `
-    SELECT *,
-      earth_distance(
-        ll_to_earth(lat, long),
-        ll_to_earth($1, $2)
-      ) as distance
-    FROM umkms
-    WHERE earth_box(ll_to_earth($1, $2), 2000) @> ll_to_earth(lat, long)
-    AND earth_distance(
-        ll_to_earth(lat, long),
-        ll_to_earth($1, $2)
-      ) < 2000 
-    ORDER BY rating DESC
-    LIMIT 5;
+  const fetchQuery = `
+    SELECT *
+    FROM umkms;
   `;
 
   try {
-    const result = await client.query(query, [lat, lon]);  // Pass the converted values
-    res.status(200).json({ places: result.rows });
+    const result = await client.query(fetchQuery);
+    const places = result.rows.map(place => ({
+      ...place,
+      distance: haversineDistance(lat, lon, place.lat, place.long)
+    }))
+    .filter(place => place.distance < 2) // Filter places within 2 km radius
+    .sort((a, b) => a.distance - b.distance) // Sort by distance
+    .slice(0, 5); // Limit to the top 5 closest places
+
+    res.status(200).json({ places });
   } catch (err) {
     console.error('Error executing query', err.stack);
     res.status(500).json({ message: err.message });
   }
 });
 
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const toRad = (x) => x * Math.PI / 180;
+
+  const R = 6371; // Earth radius in kilometers
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in kilometers
+}
 
 export default homepage
