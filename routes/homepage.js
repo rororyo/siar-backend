@@ -59,6 +59,48 @@ homepage.get("/api/kategori/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// get popular umkms
+homepage.get("/api/kategori/popular/:id", async (req, res) => {
+  const client = req.dbClient;
+  try {
+    const result = await client.query("SELECT menus.*,umkms.*,kategori FROM menus JOIN kategori ON kategori_id = kategori.id join umkms on restaurant_id = umkms.id where menus.kategori_id = $1 ORDER BY umkms.rating DESC LIMIT 10", [req.params.id]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ umkms: result.rows });
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+})
+//get open places
+homepage.get("/api/kategori/open/:id", async (req, res) => {
+  const client = req.dbClient;
+  const currentTime = new Date();  // Current time object
+
+  // Format current time as 'HH:MM:SS' to compare with database time values
+  const formattedCurrentTime = currentTime.toTimeString().split(' ')[0];
+
+  try {
+    // Query to check if current time is within open_at and close_at times
+    const query = "SELECT *, (open_at <= $2 AND close_at >= $2) AS is_open FROM umkms WHERE kategori_id = $1";
+    const result = await client.query(query, [req.params.id, formattedCurrentTime]);
+
+    if (result.rows.length > 0) {
+      // Add additional information to the response about the open status
+      const place = result.rows;
+      res.status(200).json({ 
+        umkm: place,
+        isOpen: place.is_open,  // This tells if the place is currently open
+        currentTime: formattedCurrentTime  // Optional, for debugging or display purposes
+      });
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 //get specific umkms by id
 homepage.get("/api/umkm/:id", async (req, res) => {
   const client = req.dbClient;
@@ -138,6 +180,9 @@ homepage.post('/api/nearby-places', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+
+
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const toRad = (x) => x * Math.PI / 180;
