@@ -92,12 +92,12 @@ player.get("/api/get-rewards", async (req, res) => {
     const wayspotName = req.query['wayspot-name'];
 
     // Query database to check if wayspot has been found within 24 hours
-    const result = await client.query("SELECT * FROM wayspots WHERE name = $1 AND $2 - found_at < $3 AND user_id = $4", [wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
+    const result = await client.query("SELECT * FROM wayspots WHERE wayspot_name = $1 AND $2 - found_at < $3 AND user_id = $4", [wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
 
     if (result.rows.length === 0) {
       try {
         // Insert wayspot into database
-        await client.query("INSERT INTO wayspots (name, user_id, found_at) VALUES ($1, $2, $3)", [wayspotName, userId, currentTimestamp]);
+        await client.query("INSERT INTO wayspots (wayspot_name, user_id, found_at) VALUES ($1, $2, $3)", [wayspotName, userId, currentTimestamp]);
         
         // Update user's experience
         await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
