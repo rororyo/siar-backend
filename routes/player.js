@@ -67,9 +67,10 @@ player.get("/api/current-user", async (req, res) => {
 });
 
 // Example of another endpoint
-player.get("/api/get-rewards?wayspot-name=:wayspotName", async (req, res) => {
+player.get("/api/get-rewards", async (req, res) => {
   const tokenHeader = req.headers.authorization;
   const client = req.dbClient;
+
   if (!tokenHeader) {
     return res.status(401).json({ message: "No token provided" });
   }
@@ -80,31 +81,43 @@ player.get("/api/get-rewards?wayspot-name=:wayspotName", async (req, res) => {
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: Token not found" });
   }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
     const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
     const currentTimestamp = Date.now();
-    const result = await client.query("SELECT * FROM wayspots WHERE name = $1 AND $2 - found_at < $3 and user_id = $4 ", [req.params.wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
+
+    // Access query parameter `wayspot-name`
+    const wayspotName = req.query['wayspot-name'];
+
+    // Query database to check if wayspot has been found within 24 hours
+    const result = await client.query("SELECT * FROM wayspots WHERE name = $1 AND $2 - found_at < $3 AND user_id = $4", [wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
+
     if (result.rows.length === 0) {
-      try{
-        await client.query("INSERT INTO wayspots (name, user_id) VALUES ($1, $2, $3)", [req.params.wayspotName, userId]);
+      try {
+        // Insert wayspot into database
+        await client.query("INSERT INTO wayspots (name, user_id, found_at) VALUES ($1, $2, $3)", [wayspotName, userId, currentTimestamp]);
+        
+        // Update user's experience
         await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
+        
+        // Respond with success message
         res.status(200).json({ message: "Wayspot found" });
-      }
-      catch (err) {
-        console.error('Error in adding exp:', err);
+      } catch (err) {
+        console.error('Error in adding wayspot:', err);
         res.status(500).json({ message: err.message });
       }
-    }
-    else{
+    } else {
+      // Wayspot already found within 24 hours
       res.status(200).json({ message: "Wayspot already found" });
     }
   } catch (err) {
-    console.error('Error in adding exp:', err);
+    console.error('Error in verifying token:', err);
     res.status(500).json({ message: err.message });
   }
 });
+
 
 player.get("/api/found-wayspots", async (req, res) => {
   const client = req.dbClient;
