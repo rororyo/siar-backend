@@ -67,7 +67,7 @@ player.get("/api/current-user", async (req, res) => {
 });
 
 // Example of another endpoint
-player.get("/api/get-rewards", async (req, res) => {
+player.get("/api/get-rewards?wayspot-name=:wayspotName", async (req, res) => {
   const tokenHeader = req.headers.authorization;
   const client = req.dbClient;
   if (!tokenHeader) {
@@ -83,13 +83,29 @@ player.get("/api/get-rewards", async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
-    await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
-    res.status(200).json({ message: "Exp successfully added" });
+    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
+    const currentTimestamp = Date.now();
+    const result = await client.query("SELECT * FROM wayspots WHERE name = $1 AND $2 - found_at < $3 and user_id = $4 ", [req.params.wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
+    if (result.rows.length === 0) {
+      try{
+        await client.query("INSERT INTO wayspots (name, user_id) VALUES ($1, $2, $3)", [req.params.wayspotName, userId]);
+        await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
+        res.status(200).json({ message: "Wayspot found" });
+      }
+      catch (err) {
+        console.error('Error in adding exp:', err);
+        res.status(500).json({ message: err.message });
+      }
+    }
+    else{
+      res.status(200).json({ message: "Wayspot already found" });
+    }
   } catch (err) {
     console.error('Error in adding exp:', err);
     res.status(500).json({ message: err.message });
   }
 });
+
 player.get("/api/found-wayspots", async (req, res) => {
   const client = req.dbClient;
   const tokenHeader = req.headers.authorization;

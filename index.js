@@ -13,7 +13,7 @@ import player from "./routes/player.js";
 // Constants
 const app = express();
 const port = 4000;
-app.set('trust proxy', true);
+app.set("trust proxy", true);
 // List of allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
@@ -21,6 +21,7 @@ const allowedOrigins = [
   "https://halal-hunter.vercel.app",
   "https://4mwqv6dl-3000.asse.devtunnels.ms",
   "https://g562f42v-3000.asse.devtunnels.ms"
+
 ];
 // Dynamic CORS configuration
 const corsOptions = {
@@ -44,7 +45,7 @@ app.use(cookieParser());
 app.use(authApp);
 app.use(halalin);
 app.use(homepage);
-app.use(player)
+app.use(player);
 
 // Routes
 app.get("/", (req, res) => {

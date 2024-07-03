@@ -13,7 +13,6 @@ const allowedOrigins = [
   "https://4x9br3l0-3000.asse.devtunnels.ms",
   "https://halal-hunter.vercel.app",
   "https://4mwqv6dl-3000.asse.devtunnels.ms",
-  "https://g562f42v-3000.asse.devtunnels.ms"
 ];
 // Dynamic CORS configuration
 const corsOptions = {
