@@ -66,7 +66,7 @@ player.get("/api/current-user", async (req, res) => {
   }
 });
 
-// Example of another endpoint
+
 player.get("/api/get-rewards", async (req, res) => {
   const tokenHeader = req.headers.authorization;
   const client = req.dbClient;
@@ -75,9 +75,7 @@ player.get("/api/get-rewards", async (req, res) => {
     return res.status(401).json({ message: "No token provided" });
   }
 
-  // Split the token from 'Bearer TOKEN_VALUE'
-  const token = tokenHeader.split(' ')[1]; 
-  // Now check if the token was actually split and exists
+  const token = tokenHeader.split(' ')[1];
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: Token not found" });
   }
@@ -85,31 +83,50 @@ player.get("/api/get-rewards", async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
-    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
-    const currentTimestamp = Date.now();
 
-    // Access query parameter `wayspot-name`
+    // Debugging: Log the user ID
+
     const wayspotName = req.query['wayspot-name'];
 
-    // Query database to check if wayspot has been found within 24 hours
-    const result = await client.query("SELECT * FROM wayspots WHERE wayspot_name = $1 AND $2 - found_at < $3 AND user_id = $4", [wayspotName, currentTimestamp, twentyFourHoursInMs, userId]);
+    // Check the current date in UTC
+    const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+
+    // Get the last reset date from reset_log
+    const resetResult = await client.query("SELECT last_reset_date FROM reset_log WHERE id = 1");
+    const lastResetDate = new Date(resetResult.rows[0].last_reset_date);
+    
+    // Add one day to the last reset date
+    lastResetDate.setDate(lastResetDate.getDate() + 1);
+    const adjustedLastResetDate = lastResetDate.toISOString().slice(0, 10);
+
+
+    if (currentDate !== adjustedLastResetDate) {
+      // Delete all rows from the wayspots table if the date has changed
+      await client.query("DELETE FROM wayspots");
+
+      // Update the reset_log with the new reset date
+      await client.query("UPDATE reset_log SET last_reset_date = $1 WHERE id = 1", [currentDate]);
+    }
+
+    // Query database to check if wayspot has been found within the current day
+    const result = await client.query("SELECT * FROM wayspots WHERE wayspot_name = $1 AND user_id = $2", [wayspotName, userId]);
 
     if (result.rows.length === 0) {
       try {
-        // Insert wayspot into database
-        await client.query("INSERT INTO wayspots (wayspot_name, user_id, found_at) VALUES ($1, $2, $3)", [wayspotName, userId, currentTimestamp]);
-        
+        // Insert wayspot into database (found_at column will automatically use current_timestamp)
+        await client.query("INSERT INTO wayspots (wayspot_name, user_id) VALUES ($1, $2)", [wayspotName, userId]);
+
         // Update user's experience
         await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
-        
+
         // Respond with success message
         res.status(200).json({ message: "Wayspot found" });
       } catch (err) {
-        console.error('Error in adding wayspot:', err);
+        console.error('Error in adding wayspot:", err');
         res.status(500).json({ message: err.message });
       }
     } else {
-      // Wayspot already found within 24 hours
+      // Wayspot already found within the current day
       res.status(200).json({ message: "Wayspot already found" });
     }
   } catch (err) {
@@ -118,29 +135,37 @@ player.get("/api/get-rewards", async (req, res) => {
   }
 });
 
-
 player.get("/api/found-wayspots", async (req, res) => {
   const client = req.dbClient;
   const tokenHeader = req.headers.authorization;
+
   if (!tokenHeader) {
     return res.status(401).json({ message: "No token provided" });
   }
 
-  // Split the token from 'Bearer TOKEN_VALUE'
   const token = tokenHeader.split(' ')[1]; 
-  // Now check if the token was actually split and exists
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: Token not found" });
   }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
-    const result = await client.query("SELECT * FROM wayspotFound where user_id = $1", [userId]);
-      res.status(200).json({ wayspots: result.rows });
-  }
-  catch (err) {
+
+    // Get the current date in YYYY-MM-DD format
+    const currentDate = new Date().toISOString().slice(0, 10);
+
+    // Query to get all wayspots found on the same day
+    const result = await client.query(
+      "SELECT * FROM wayspots WHERE user_id = $1 AND DATE(found_at) = $2",
+      [userId, currentDate]
+    );
+
+    res.status(200).json({ wayspots: result.rows });
+  } catch (err) {
+    console.error('Error fetching wayspots:', err);
     res.status(500).json({ message: err.message });
   }
-})
+});
 
 export default player;
