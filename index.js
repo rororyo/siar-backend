@@ -10,6 +10,7 @@ import cookieParser from "cookie-parser";
 import halalin from "./routes/halalin.js";
 import homepage from "./routes/homepage.js";
 import player from "./routes/player.js";
+import reviews from "./routes/reviews.js";
 // Constants
 const app = express();
 const port = 4000;
@@ -46,7 +47,7 @@ app.use(authApp);
 app.use(halalin);
 app.use(homepage);
 app.use(player);
-
+app.use(reviews);
 // Routes
 app.get("/", (req, res) => {
   res.json({ message: "Hello World" });
