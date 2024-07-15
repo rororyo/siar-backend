@@ -92,4 +92,21 @@ reviews.get("/api/video-reviews/:umkmid", async (req, res) => {
   }
 })
 
+//get all video reviews
+reviews.get("/api/video-reviews", async (req, res) => {
+  const client = req.dbClient;
+  try{
+    const result = await client.query("SELECT * FROM video_reviews");
+    if(result.rows.length > 0){
+      res.status(200).json({ reviews: result.rows });
+    }
+    else{
+      res.status(404).json({ message: "Data not found" });
+    }
+  }
+  catch(err){
+    res.status(500).json({ message: err.message });
+  }
+})
+
 export default reviews;
