@@ -45,11 +45,11 @@ homepage.get("/api/kategori", async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
 }});
-//sort umkms by category
+//get umkms by category
 homepage.get("/api/kategori/:id", async (req, res) => {
   const client = req.dbClient;
   try {
-    const result = await client.query("SELECT menus.*,umkms.*,kategori FROM menus JOIN kategori ON kategori_id = kategori.id join umkms on restaurant_id = umkms.id where menus.kategori_id = $1", [req.params.id]);
+    const result = await client.query("SELECT * FROM umkms WHERE kategori_id = $1", [req.params.id]);
     if (result.rows.length > 0) {
       res.status(200).json({ umkms: result.rows });
     } else {
@@ -59,6 +59,22 @@ homepage.get("/api/kategori/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+//sort menus by category
+homepage.get("/api/menus/:id", async (req, res) => {
+  const client = req.dbClient;
+  try {
+    const result = await client.query("SELECT menus.* FROM menus where restaurant_id = $1", [req.params.id]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ menus: result.rows });
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // get popular umkms
 homepage.get("/api/kategori/popular/:id", async (req, res) => {
   const client = req.dbClient;
@@ -181,7 +197,69 @@ homepage.post('/api/nearby-places', async (req, res) => {
   }
 });
 
+// get reviews for specific umkm
+homepage.get("/api/reviews/:umkmId", async (req, res) => {
+  const client = req.dbClient;
+  const umkmId = req.params.umkmId;
+  const rating = req.query.rating;
 
+  try {
+    let result;
+    if (rating) {
+      const minRating = parseInt(rating, 10);
+      const maxRating = minRating + 0.99;
+      result = await client.query(
+        "SELECT * FROM text_reviews JOIN users ON user_id = users.id WHERE umkms_id = $1 AND rating >= $2 AND rating <= $3",
+        [umkmId, minRating, maxRating]
+      );
+    } else {
+      result = await client.query(
+        "SELECT * FROM text_reviews JOIN users ON user_id = users.id WHERE umkms_id = $1",
+        [umkmId]
+      );
+    }
+
+    
+      res.status(200).json({ reviews: result.rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//post a review 
+homepage.post("/api/reviews", async (req, res) => {
+  const client = req.dbClient;
+  const { umkms_id, rating, review, user_id } = req.body;
+  let message = '';
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    //check if the user has submitted a review today
+    const userResult = await client.query(
+      'SELECT last_review_date FROM users WHERE id = $1',
+      [user_id]
+    );
+    if (new Date(userResult.rows[0].last_review_date) < today) {
+      await client.query(
+        'UPDATE users SET last_review_date = $1 WHERE id = $2',
+        [today, user_id]
+      );
+      await client.query(
+        'update users set exp = exp + 5 where id = $1',[user_id])
+        message = 'First Review of The Day! +5 Exp';
+    }
+    else{
+      message = 'Review sucessfully submitted';
+    }
+    const result = await client.query(
+      "INSERT INTO text_reviews (umkms_id, rating, user_review, user_id) VALUES ($1, $2, $3, $4) RETURNING *",
+      [umkms_id, rating, review, user_id]
+    );
+    res.status(201).json({ review: result.rows[0] ,message});
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -196,5 +274,6 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in kilometers
 }
+
 
 export default homepage
