@@ -49,7 +49,7 @@ homepage.get("/api/kategori", async (req, res) => {
 homepage.get("/api/kategori/:id", async (req, res) => {
   const client = req.dbClient;
   try {
-    const result = await client.query("SELECT * FROM umkms WHERE kategori_id = $1", [req.params.id]);
+    const result = await client.query("SELECT umkms_filtered.*, ROUND(AVG(text_reviews.rating), 1) AS average_rating FROM (SELECT * FROM umkms WHERE kategori_id = $1) AS umkms_filtered LEFT JOIN text_reviews ON umkms_filtered.id = text_reviews.umkms_id GROUP BY umkms_filtered.id", [req.params.id]);
     if (result.rows.length > 0) {
       res.status(200).json({ umkms: result.rows });
     } else {
@@ -65,11 +65,7 @@ homepage.get("/api/menus/:id", async (req, res) => {
   const client = req.dbClient;
   try {
     const result = await client.query("SELECT menus.* FROM menus where restaurant_id = $1", [req.params.id]);
-    if (result.rows.length > 0) {
       res.status(200).json({ menus: result.rows });
-    } else {
-      res.status(404).json({ message: "Data not found" });
-    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -79,7 +75,7 @@ homepage.get("/api/menus/:id", async (req, res) => {
 homepage.get("/api/kategori/popular/:id", async (req, res) => {
   const client = req.dbClient;
   try {
-    const result = await client.query("SELECT menus.*,umkms.*,kategori FROM menus JOIN kategori ON kategori_id = kategori.id join umkms on restaurant_id = umkms.id where menus.kategori_id = $1 ORDER BY umkms.rating DESC LIMIT 10", [req.params.id]);
+    const result = await client.query("SELECT umkms_filtered.*, ROUND(AVG(text_reviews.rating), 1) AS average_rating FROM (SELECT * FROM umkms WHERE kategori_id = $1) AS umkms_filtered LEFT JOIN text_reviews ON umkms_filtered.id = text_reviews.umkms_id GROUP BY umkms_filtered.id ORDER BY average_rating DESC", [req.params.id]);
     if (result.rows.length > 0) {
       res.status(200).json({ umkms: result.rows });
     } else {
