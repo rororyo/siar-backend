@@ -192,6 +192,25 @@ homepage.post('/api/nearby-places', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+//get umkms review for profiling
+homepage.get("/api/reviews/umkm-profile/:umkmId", async (req, res) => {
+const client = req.dbClient;
+const umkmId = req.params.umkmId;
+try{
+  const result = await client.query("SELECT umkms.nama, umkms.alamat, COUNT(*) AS review_count, ROUND(AVG(text_reviews.rating), 1) AS average_rating FROM text_reviews JOIN umkms ON text_reviews.umkms_id = umkms.id WHERE umkms.id = $1 GROUP BY umkms.id, umkms.nama, umkms.alamat;", [umkmId]);
+  if(result.rows.length > 0){
+    res.status(200).json({ data: result.rows });
+  }
+  else{
+    res.status(404).json({ message: "Data not found" });
+  }
+}
+catch(err){
+  res.status(500).json({ message: err.message });
+}
+
+})
+
 
 // get reviews for specific umkm
 homepage.get("/api/reviews/:umkmId", async (req, res) => {

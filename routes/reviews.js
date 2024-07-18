@@ -33,21 +33,7 @@ reviews.use(express.urlencoded({ extended: true }));
 reviews.use(cookieParser());
 reviews.use(dbMiddleware); 
 
-//post a review
-reviews.post("/api/text-reviews", async (req, res) => {
-  const client = req.dbClient;
-  const { umkms_id, user_review } = req.body;
-  try {
-    const result = await client.query("INSERT INTO text_reviews (umkms_id, user_review) VALUES ($1, $2)", [umkms_id, user_review]);
-    if (result.rows.length > 0) {
-      res.status(200).json({ message: 'Data inserted successfully' });
-    } else {
-      res.status(400).json({ message: 'Data not inserted' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-})
+
 //get reviews by umkm name
 reviews.get("/api/text-reviews", async (req, res) => {
   const client = req.dbClient;
@@ -71,11 +57,29 @@ reviews.get("/api/text-reviews", async (req, res) => {
 // prep
 // INSERT INTO text_reviews (umkms_id, user_review) VALUES ((SELECT id FROM umkms WHERE nama = 'Name_of_UKM'), 'Your review text here');
 // WIP 
-reviews.get("/api/video-reviews/:umkmid", async (req, res) => {
+//get all video reviews
+reviews.get("/api/video-reviews", async (req, res) => {
   const client = req.dbClient;
-  const umkmid = req.params.umkmid;
   try{
-    const result = await client.query("SELECT * FROM video_reviews WHERE umkm_id = $1", [umkmid]);
+    const result = await client.query("select video_reviews.*,users.email,users.username from video_reviews join users on user_id = users.id");
+    if(result.rows.length > 0){
+      res.status(200).json({ reviews: result.rows });
+    }
+    else{
+      res.status(404).json({ message: "Data not found" });
+    }
+  }
+  catch(err){
+    res.status(500).json({ message: err.message });
+  }
+})
+
+//get video reviews by id
+reviews.get("/api/video-reviews/:videoId", async (req, res) => {
+  const client = req.dbClient;
+  const videoId = req.params.videoId;
+  try{
+    const result = await client.query("select video_reviews.*,users.id,users.email,users.username,users.rank,umkms.id,umkms.nama  from video_reviews join users on user_id = users.id join umkms on umkms_id = umkms.id  where video_reviews.id = $1", [videoId]);
     if (result.rows.length > 0) {
       res.status(200).json({ reviews: result.rows });
     }
@@ -88,24 +92,51 @@ reviews.get("/api/video-reviews/:umkmid", async (req, res) => {
 
   }
   catch(err){
-
+    res.status(500).json({ message: err.message });
   }
 })
-
-//get all video reviews
-reviews.get("/api/video-reviews", async (req, res) => {
+//get video likes
+reviews.get("/api/video-review/likes/:reviewId", async (req, res) => {
   const client = req.dbClient;
+  const reviewId = req.params.reviewId;
   try{
-    const result = await client.query("SELECT * FROM video_reviews");
-    if(result.rows.length > 0){
-      res.status(200).json({ reviews: result.rows });
-    }
-    else{
-      res.status(404).json({ message: "Data not found" });
-    }
+    const result = await client.query("select count(*) as like_count from likes where video_id = $1", [reviewId])
+    res.status(200).json({ likes: result.rows });
   }
   catch(err){
     res.status(500).json({ message: err.message });
+  }
+})
+
+//like video review
+reviews.post("/api/video-review/like", async (req, res) => {
+  const { userId, postId } = req.body;
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO likes (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+      [userId, postId]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+
+})
+//unlike video review
+reviews.post ("/api/video-review/unlike", async (req, res) => {
+  const { userId, postId } = req.body;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM likes WHERE user_id = $1 AND video_id = $2 RETURNING *',
+      [userId, postId]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 })
 
