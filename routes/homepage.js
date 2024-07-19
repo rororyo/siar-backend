@@ -92,10 +92,9 @@ homepage.get("/api/kategori/open/:id", async (req, res) => {
 
   // Format current time as 'HH:MM:SS' to compare with database time values
   const formattedCurrentTime = currentTime.toTimeString().split(' ')[0];
-
   try {
     // Query to check if current time is within open_at and close_at times
-    const query = "SELECT *, (open_at <= $2 AND close_at >= $2) AS is_open FROM umkms WHERE kategori_id = $1";
+    const query = "SELECT * FROM umkms WHERE kategori_id = $1 AND open_at <= $2 AND close_at >= $2";
     const result = await client.query(query, [req.params.id, formattedCurrentTime]);
 
     if (result.rows.length > 0) {
@@ -103,7 +102,6 @@ homepage.get("/api/kategori/open/:id", async (req, res) => {
       const place = result.rows;
       res.status(200).json({ 
         umkm: place,
-        isOpen: place.is_open,  // This tells if the place is currently open
         currentTime: formattedCurrentTime  // Optional, for debugging or display purposes
       });
     } else {

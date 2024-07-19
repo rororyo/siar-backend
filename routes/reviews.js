@@ -108,36 +108,112 @@ reviews.get("/api/video-review/likes/:reviewId", async (req, res) => {
   }
 })
 
-//like video review
+// Get like state
+reviews.get("/api/video-review/like-state/:reviewId/:userId", async (req, res) => {
+  const client = req.dbClient;
+  const { reviewId, userId } = req.params;
+  try {
+    const result = await client.query("SELECT * FROM likes WHERE video_id = $1 AND user_id = $2", [reviewId, userId]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ liked: true });
+    } else {
+      res.status(200).json({ liked: false });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+// Like video review
 reviews.post("/api/video-review/like", async (req, res) => {
   const { userId, postId } = req.body;
+  const client = req.dbClient;
 
   try {
-    const result = await pool.query(
+    const result = await client.query(
       'INSERT INTO likes (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
       [userId, postId]
     );
-    res.json(result.rows[0]);
+    if (result.rows.length === 0) {
+      const existingLike = await client.query(
+        'SELECT * FROM likes WHERE user_id = $1 AND video_id = $2',
+        [userId, postId]
+      );
+      res.status(200).json({ data: existingLike.rows[0], message: "Already liked" });
+    } else {
+      res.status(200).json({ data: result.rows[0], message: "Liked" });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
+});
 
-})
-//unlike video review
-reviews.post ("/api/video-review/unlike", async (req, res) => {
+// Unlike video review
+reviews.post("/api/video-review/unlike", async (req, res) => {
   const { userId, postId } = req.body;
-
+  const client = req.dbClient;
+  
   try {
-    const result = await pool.query(
+    const result = await client.query(
       'DELETE FROM likes WHERE user_id = $1 AND video_id = $2 RETURNING *',
       [userId, postId]
     );
-    res.json(result.rows[0]);
+    res.status(200).json({ data: result.rows[0], message: "Unliked" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
+});
+
+//get follow state
+reviews.get("/api/video-review/follow-state/:userId/:followId", async (req, res) => {
+  const client = req.dbClient;
+  const { followId, userId } = req.params;
+  try {
+    const result = await client.query("SELECT * FROM follows WHERE user_id = $1 AND follow_id = $2", [userId, followId]);
+    if (result.rows.length > 0) {
+      res.status(200).json({ followed: true });
+    } else {
+      res.status(200).json({ followed: false });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+})
+// follow action
+reviews.post("/api/video-review/follow", async (req, res) => {
+  const { userId, followId } = req.body;
+  const client = req.dbClient;
+  try {
+    const result = await client.query(
+      'INSERT INTO follows (user_id, follow_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+      [userId, followId])
+    if (result.rows.length === 0) {
+      res.status(200).json({ data: result.rows[0], message: "Already followed" });
+    } else {
+      res.status(200).json({ data: result.rows[0], message: "Followed" });
+    }
+  }
+  catch(err){
+    res.status(500).json({ message: err.message });
+  }
 })
 
+
+// unfollow action
+reviews.post("/api/video-review/unfollow", async (req, res) => {
+  const { userId, followId } = req.body;
+  const client = req.dbClient;
+  try {
+    const result = await client.query(
+      'DELETE FROM follows WHERE user_id = $1 AND follow_id = $2 RETURNING *',
+      [userId, followId])
+    res.status(200).json({ data: result.rows[0], message: "Unfollowed" });
+  }
+  catch(err){
+    res.status(500).json({ message: err.message });
+  }
+})
 export default reviews;
