@@ -43,14 +43,10 @@ reviews.get('/api/text-reviews', async (req, res) => {
   const umkmName = req.query['wayspot'];
   try {
     const result = await client.query(
-      'SELECT t.id, t.umkms_id, t.user_review FROM text_reviews t JOIN umkms u ON u.id = t.umkms_id WHERE nama = $1',
+      'SELECT t.id, t.umkms_id, t.user_review FROM text_reviews t JOIN umkms u ON u.id = t.umkms_id WHERE nama = $1 ORDER BY t.id DESC LIMIT 5',
       [umkmName]
     );
-    if (result.rows.length > 0) {
       res.status(200).json({ reviews: result.rows });
-    } else {
-      res.status(404).json({ message: 'No data found' });
-    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -72,7 +68,6 @@ reviews.get('/api/video-reviews', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-//upload text review
 //post a review 
 reviews.post("/api/text-reviews", async (req, res) => {
   const client = req.dbClient;
