@@ -95,7 +95,7 @@ homepage.get("/api/kategori/open/:id", async (req, res) => {
   const formattedCurrentTime = currentTime.format('HH:mm:ss');
   try {
     // Query to check if current time is within open_at and close_at times
-    const query = "SELECT * FROM umkms WHERE kategori_id = $1 AND open_at <= $2 AND close_at >= $2";
+    const query = "SELECT umkms_filtered.*, ROUND(AVG(text_reviews.rating), 1) AS average_rating FROM (SELECT * FROM umkms WHERE kategori_id = $1) AS umkms_filtered LEFT JOIN text_reviews ON umkms_filtered.id = text_reviews.umkms_id WHERE umkms_filtered.kategori_id = $1 AND umkms_filtered.open_at <= $2 AND umkms_filtered.close_at >= $2 GROUP BY umkms_filtered.id;";
     const result = await client.query(query, [req.params.id, formattedCurrentTime]);
 
     if (result.rows.length > 0) {
@@ -103,7 +103,6 @@ homepage.get("/api/kategori/open/:id", async (req, res) => {
       const place = result.rows;
       res.status(200).json({ 
         umkm: place,
-        currentTime: formattedCurrentTime  // Optional, for debugging or display purposes
       });
     } else {
       res.status(404).json({ message: "Data not found", currentTime: formattedCurrentTime });

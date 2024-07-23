@@ -68,6 +68,50 @@ reviews.get('/api/video-reviews', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+//get nearby video reviews
+reviews.post('/api/video-reviews/nearby', async (req, res) => {
+  const client = req.dbClient;
+  const { latitude, longitude } = req.body;
+  const lat = parseFloat(latitude);
+  const lon = parseFloat(longitude);
+
+  if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return res.status(400).json({ message: "Invalid latitude or longitude values." });
+  }
+
+  try {
+    const result = await client.query(
+      `SELECT video_reviews.*, users.email, users.username,
+      ( 6371 * acos( cos( radians($1) ) * cos( radians( lat ) ) * cos( radians( long ) - radians($2) ) + sin( radians($1) ) * sin( radians( lat ) ) ) ) AS distance
+      FROM video_reviews
+      JOIN users ON video_reviews.user_id = users.id
+      join umkms on video_reviews.umkms_id = umkms.id
+      ORDER BY distance`,
+      [lat, lon]
+    );
+
+      res.status(200).json({ reviews: result.rows });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//get following video reviews
+reviews.get('/api/video-reviews/following/:userId', async (req, res) => {
+  const client = req.dbClient;
+  const userId = req.params.userId;
+  try {
+    const result = await client.query(
+      'SELECT video_reviews.*, users.email, users.username FROM video_reviews JOIN follows ON video_reviews.user_id = follows.follow_id join users on video_reviews.user_id = users.id WHERE follows.user_id = $1',
+      [userId]
+    );
+  
+      res.status(200).json({ reviews: result.rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+})
 //post a review 
 reviews.post("/api/text-reviews", async (req, res) => {
   const client = req.dbClient;
