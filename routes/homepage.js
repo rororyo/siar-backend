@@ -4,7 +4,7 @@ import { dbMiddleware } from "./dbsetup.js";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import env from "dotenv";
-
+import moment from 'moment-timezone';
 const homepage = express();
 homepage.set('trust proxy', true)
 // List of allowed origins
@@ -85,13 +85,14 @@ homepage.get("/api/kategori/popular/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 })
-//get open places
+
+// Get open places
 homepage.get("/api/kategori/open/:id", async (req, res) => {
   const client = req.dbClient;
-  const currentTime = new Date();  // Current time object
-
+  // Get the current time in GMT+7 (Indonesia/Jakarta)
+  const currentTime = moment().tz("Asia/Jakarta");
   // Format current time as 'HH:MM:SS' to compare with database time values
-  const formattedCurrentTime = currentTime.toTimeString().split(' ')[0];
+  const formattedCurrentTime = currentTime.format('HH:mm:ss');
   try {
     // Query to check if current time is within open_at and close_at times
     const query = "SELECT * FROM umkms WHERE kategori_id = $1 AND open_at <= $2 AND close_at >= $2";
@@ -105,14 +106,13 @@ homepage.get("/api/kategori/open/:id", async (req, res) => {
         currentTime: formattedCurrentTime  // Optional, for debugging or display purposes
       });
     } else {
-      res.status(404).json({ message: "Data not found",
-        currentTime: formattedCurrentTime
-      });
+      res.status(404).json({ message: "Data not found", currentTime: formattedCurrentTime });
     }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 //get specific umkms by id
 homepage.get("/api/umkm/:id", async (req, res) => {
   const client = req.dbClient;
@@ -247,35 +247,35 @@ homepage.post("/api/reviews", async (req, res) => {
   const { umkms_id, rating, review, user_id } = req.body;
   let message = '';
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    //check if the user has submitted a review today
+    const today = moment().tz("Asia/Jakarta").startOf('day').toDate();  // Set to GMT+7
+    // Check if the user has submitted a review today
     const userResult = await client.query(
       'SELECT last_review_date FROM users WHERE id = $1',
       [user_id]
     );
+
     if (new Date(userResult.rows[0].last_review_date) < today) {
       await client.query(
         'UPDATE users SET last_review_date = $1 WHERE id = $2',
         [today, user_id]
       );
       await client.query(
-        'update users set exp = exp + 5 where id = $1',[user_id])
-        message = 'First Review of The Day! +5 Exp';
+        'update users set exp = exp + 5 where id = $1',[user_id]);
+      message = 'First Review of The Day! +5 Exp';
+    } else {
+      message = 'Review successfully submitted';
     }
-    else{
-      message = 'Review sucessfully submitted';
-    }
+
     const result = await client.query(
       "INSERT INTO text_reviews (umkms_id, rating, user_review, user_id) VALUES ($1, $2, $3, $4) RETURNING *",
       [umkms_id, rating, review, user_id]
     );
-    res.status(201).json({ review: result.rows[0] ,message});
+
+    res.status(201).json({ review: result.rows[0], message,currentDate:today });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const toRad = (x) => x * Math.PI / 180;

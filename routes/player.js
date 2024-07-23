@@ -4,6 +4,8 @@ import { dbMiddleware } from "./dbsetup.js";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from "dotenv";
+import moment from 'moment-timezone';
+
 
 const player = express();
 player.set('trust proxy', true);
@@ -67,6 +69,7 @@ player.get("/api/current-user", async (req, res) => {
 });
 
 
+//get rewards
 player.get("/api/get-rewards", async (req, res) => {
   const tokenHeader = req.headers.authorization;
   const client = req.dbClient;
@@ -84,23 +87,16 @@ player.get("/api/get-rewards", async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
 
-    // Debugging: Log the user ID
-
     const wayspotName = req.query['wayspot-name'];
 
-    // Check the current date in UTC
-    const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+    // Check the current date in GMT+7
+    const currentDate = moment().tz("Asia/Jakarta").format('YYYY-MM-DD');
 
     // Get the last reset date from reset_log
     const resetResult = await client.query("SELECT last_reset_date FROM reset_log WHERE id = 1");
-    const lastResetDate = new Date(resetResult.rows[0].last_reset_date);
-    
-    // Add one day to the last reset date
-    lastResetDate.setDate(lastResetDate.getDate() + 1);
-    const adjustedLastResetDate = lastResetDate.toISOString().slice(0, 10);
+    const lastResetDate = moment(resetResult.rows[0].last_reset_date).tz("Asia/Jakarta").format('YYYY-MM-DD');
 
-
-    if (currentDate !== adjustedLastResetDate) {
+    if (currentDate !== lastResetDate) {
       // Delete all rows from the wayspots table if the date has changed
       await client.query("DELETE FROM wayspots");
 
@@ -113,36 +109,27 @@ player.get("/api/get-rewards", async (req, res) => {
 
     if (result.rows.length === 0) {
       try {
-        // Insert wayspot into database (found_at column will automatically use current_timestamp)
         await client.query("INSERT INTO wayspots (wayspot_name, user_id) VALUES ($1, $2)", [wayspotName, userId]);
-
-        // Update user's experience
         await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
-
-        // Respond with success message
-        res.status(200).json({ message: "Wayspot found" });
+        res.status(200).json({ message: "Wayspot found", timestamp: moment().tz("Asia/Jakarta").format() });
       } catch (err) {
-        console.error('Error in adding wayspot:", err');
+        console.error('Error in adding wayspot:', err);
         res.status(500).json({ message: err.message });
       }
     } else {
-      // Wayspot already found within the current day
-      res.status(200).json({ message: "Wayspot already found" });
+      res.status(200).json({ message: "Wayspot already found", timestamp: moment().tz("Asia/Jakarta").format() });
     }
   } catch (err) {
     console.error('Error in verifying token:', err);
     res.status(500).json({ message: err.message });
   }
 });
-
 player.get("/api/found-wayspots", async (req, res) => {
   const client = req.dbClient;
   const tokenHeader = req.headers.authorization;
-
   if (!tokenHeader) {
     return res.status(401).json({ message: "No token provided" });
   }
-
   const token = tokenHeader.split(' ')[1]; 
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: Token not found" });
@@ -151,13 +138,9 @@ player.get("/api/found-wayspots", async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.user.id;
-
-    // Get the current date in YYYY-MM-DD format
-    const currentDate = new Date().toISOString().slice(0, 10);
-
-    // Query to get all wayspots found on the same day
+    const currentDate = moment().tz("Asia/Jakarta").format('YYYY-MM-DD');
     const result = await client.query(
-      "SELECT * FROM wayspots WHERE user_id = $1 AND DATE(found_at) = $2",
+      "SELECT * FROM wayspots WHERE user_id = $1 AND DATE(found_at AT TIME ZONE 'Asia/Jakarta') = $2",
       [userId, currentDate]
     );
 
