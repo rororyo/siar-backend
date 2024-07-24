@@ -89,27 +89,21 @@ player.get("/api/get-rewards", async (req, res) => {
 
     const wayspotName = req.query['wayspot-name'];
 
-    // Check the current date in GMT+7
     const currentDate = moment().tz("Asia/Jakarta").format('YYYY-MM-DD');
 
-    // Get the last reset date from reset_log
     const resetResult = await client.query("SELECT last_reset_date FROM reset_log WHERE id = 1");
     const lastResetDate = moment(resetResult.rows[0].last_reset_date).tz("Asia/Jakarta").format('YYYY-MM-DD');
-
     if (currentDate !== lastResetDate) {
-      // Delete all rows from the wayspots table if the date has changed
       await client.query("DELETE FROM wayspots");
 
-      // Update the reset_log with the new reset date
       await client.query("UPDATE reset_log SET last_reset_date = $1 WHERE id = 1", [currentDate]);
     }
 
-    // Query database to check if wayspot has been found within the current day
     const result = await client.query("SELECT * FROM wayspots WHERE wayspot_name = $1 AND user_id = $2", [wayspotName, userId]);
 
     if (result.rows.length === 0) {
       try {
-        await client.query("INSERT INTO wayspots (wayspot_name, user_id) VALUES ($1, $2)", [wayspotName, userId]);
+        await client.query("INSERT INTO wayspots (wayspot_name,found_at, user_id) VALUES ($1, $2, $3)", [wayspotName, currentDate ,userId]);
         await client.query("UPDATE users SET exp = exp + 5 WHERE id = $1", [userId]);
         res.status(200).json({ message: "Wayspot found", timestamp: moment().tz("Asia/Jakarta").format() });
       } catch (err) {
@@ -140,11 +134,11 @@ player.get("/api/found-wayspots", async (req, res) => {
     const userId = decoded.user.id;
     const currentDate = moment().tz("Asia/Jakarta").format('YYYY-MM-DD');
     const result = await client.query(
-      "SELECT * FROM wayspots WHERE user_id = $1 AND DATE(found_at AT TIME ZONE 'Asia/Jakarta') = $2",
+      "SELECT * FROM wayspots WHERE user_id = $1 AND DATE(found_at) = $2",
       [userId, currentDate]
     );
 
-    res.status(200).json({ wayspots: result.rows });
+    res.status(200).json({ wayspots: result.rows,currentDate: currentDate });
   } catch (err) {
     console.error('Error fetching wayspots:', err);
     res.status(500).json({ message: err.message });
