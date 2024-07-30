@@ -14,7 +14,7 @@ import reviews from "./routes/reviews.js";
 import profile from "./routes/profile.js";
 // Constants
 const app = express();
-const port = 4000;
+const port = process.env.PORT || 4000;
 app.set("trust proxy", true);
 // List of allowed origins
 const allowedOrigins = [
