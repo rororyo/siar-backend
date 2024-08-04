@@ -1,12 +1,11 @@
-import express from "express";
-import jwt from "jsonwebtoken";
-import { dbMiddleware } from "./dbsetup.js";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import dotenv from "dotenv";
-import  upload  from "./multer-config.js";
-import s3Client from "./aws-config.js";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { dbMiddleware } from './dbsetup.js';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import upload from './multer-config.js';
+import { storage, bucketName } from './gcs-config.js';
 dotenv.config();
 
 const reviews = express();
@@ -46,7 +45,7 @@ reviews.get('/api/text-reviews', async (req, res) => {
       'SELECT t.id, t.umkms_id, t.user_review FROM text_reviews t JOIN umkms u ON u.id = t.umkms_id WHERE nama = $1 ORDER BY t.id DESC LIMIT 5',
       [umkmName]
     );
-      res.status(200).json({ reviews: result.rows });
+    res.status(200).json({ reviews: result.rows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -68,6 +67,7 @@ reviews.get('/api/video-reviews', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 //get nearby video reviews
 reviews.post('/api/video-reviews/nearby', async (req, res) => {
   const client = req.dbClient;
@@ -90,7 +90,7 @@ reviews.post('/api/video-reviews/nearby', async (req, res) => {
       [lat, lon]
     );
 
-      res.status(200).json({ reviews: result.rows });
+    res.status(200).json({ reviews: result.rows });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -106,12 +106,13 @@ reviews.get('/api/video-reviews/following/:userId', async (req, res) => {
       'SELECT video_reviews.*, users.email, users.username FROM video_reviews JOIN follows ON video_reviews.user_id = follows.follow_id join users on video_reviews.user_id = users.id WHERE follows.user_id = $1',
       [userId]
     );
-  
-      res.status(200).json({ reviews: result.rows });
+
+    res.status(200).json({ reviews: result.rows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-})
+});
+
 //post a review 
 reviews.post("/api/text-reviews", async (req, res) => {
   const client = req.dbClient;
@@ -159,34 +160,51 @@ reviews.post('/api/video-review', upload.fields([{ name: 'video', maxCount: 1 },
       return res.status(400).json({ message: 'Video and thumbnail files are required' });
     }
 
-    // Upload video to S3
-    const videoParams = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: `videos/${Date.now()}_${videoFile.originalname}`,
-      Body: videoFile.buffer,
-      ContentType: videoFile.mimetype,
-    };
-    const videoData = await s3Client.send(new PutObjectCommand(videoParams));
+    // Upload video to GCS
+    const videoBlob = storage.bucket(bucketName).file(`videos/${Date.now()}_${videoFile.originalname}`);
+    const videoBlobStream = videoBlob.createWriteStream({
+      resumable: false,
+      contentType: videoFile.mimetype,
+    });
 
-    // Upload thumbnail to S3
-    const thumbnailParams = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: `thumbnails/${Date.now()}_${thumbnailFile.originalname}`,
-      Body: thumbnailFile.buffer,
-      ContentType: thumbnailFile.mimetype,
-    };
-    const thumbnailData = await s3Client.send(new PutObjectCommand(thumbnailParams));
+    videoBlobStream.on('error', (err) => {
+      res.status(500).json({ message: err.message });
+    });
 
-    const response = await client.query(
-      'INSERT INTO video_reviews (title, description, file_path, thumbnail_path, umkms_id, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [title, description, `${videoParams.Key}`, `${thumbnailParams.Key}`, umkms_id, user_id]
-    );
-    res.status(200).json({ data: response.rows[0], message: 'Success' });
+    videoBlobStream.on('finish', async () => {
+      // Upload thumbnail to GCS
+      const thumbnailBlob = storage.bucket(bucketName).file(`thumbnails/${Date.now()}_${thumbnailFile.originalname}`);
+      const thumbnailBlobStream = thumbnailBlob.createWriteStream({
+        resumable: false,
+        contentType: thumbnailFile.mimetype,
+      });
+      console.log('video info:')
+      console.log(videoBlob.name, thumbnailBlob.name)
+      thumbnailBlobStream.on('error', (err) => {
+        res.status(500).json({ message: err.message });
+      });
+
+      thumbnailBlobStream.on('finish', async () => {
+        try {
+          const response = await client.query(
+            'INSERT INTO video_reviews (title, description, file_path, thumbnail_path, umkms_id, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [title, description, videoBlob.name, thumbnailBlob.name, umkms_id, user_id]
+          );
+          res.status(200).json({ data: response.rows[0], message: 'Success' });
+        } catch (err) {
+          res.status(500).json({ message: err.message });
+        }
+      });
+
+      thumbnailBlobStream.end(thumbnailFile.buffer);
+    });
+
+    videoBlobStream.end(videoFile.buffer);
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 
 // get video reviews by id
 reviews.get('/api/video-reviews/:videoId', async (req, res) => {
@@ -307,5 +325,6 @@ reviews.post('/api/video-review/unfollow', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 export default reviews;
